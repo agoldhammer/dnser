@@ -1,29 +1,29 @@
-fn main() {
-    println!("Hello, world!");
-}
-
+use std::net::IpAddr;
 use std::time::Duration;
+use tokio::time::timeout;
+use hickory_resolver::AsyncResolver;
+// use hickory_resolver::config::\*;
+// use hickory_resolver::proto::rr::RData;
+// use hickory_resolver::proto::rr::RecordType;
 
-use async_std::task;
-use trust_dns_resolver::config::{ResolverConfig,ResolverOpts};
-use trust_dns_resolver::lookup::Lookup;
-use trust_dns_resolver::system_conf::read_system_conf;
+#[tokio::main]
+  async fn main() {
+    let resolver = AsyncResolver::tokio_from_system_conf().unwrap();
+    let ip_addr: IpAddr = "8.8.8.8".parse().unwrap();
 
-async fn reverse_lookup(ip:&str) -> Result<String, String> {
-  let config = ResolverConfig::from_system_conf(read_system_conf().unwrap()).unwrap();
+    let reverse_lookup = resolver.reverse_lookup(ip_addr);
+    let timeout_duration = Duration::from_secs(5);
+    let result = timeout(timeout_duration, reverse_lookup).await;
 
-  let timeout = Duration::from_secs(5);
+    match result {
+        Ok(Ok(lookup_result)) => {
+            // for rdata in lookup_result.iter().filter_map(RData::PTR) {
+                // println!("PTR: {}", rdata.ptrdname());
+                dbg!("result: {}", lookup_result);
+            // }
+        }
+        Ok(Err(err)) => println!("Failed to find PTR record: {}", err),
+        Err(_) => println!("Reverse lookup timed out"),
+    }
 
-  let lookup = Lookup::reverse(ip);
-
-  let result = task::spawn_blocking(move || {
-    let resolver = Resolver::new(config, ResolverOpts::default()).unwrap();
-    resolver.lookup(lookup).await
-  });
-
-  match task::timeout(timeout, result).await {
-    Ok(Ok(records)) => Ok(records[0].to_string()),
-    Ok(Err(e)) => Err(format!("Error resolving: {}", e)),
-    Err(_) => Err("Timeout".to_string()),
-  }
 }
