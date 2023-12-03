@@ -47,10 +47,8 @@ async fn main() {
     fpath.push("unique_ips_54.txt");
     let lines = read_lines(&fpath).unwrap();
     let mut set = JoinSet::new();
-    
     for ip_str in lines {
         set.spawn(async move {get_name(&ip_str.unwrap()).await});
-            
     }
     while let Some(res) = set.join_next().await {
         res.expect("join error");
