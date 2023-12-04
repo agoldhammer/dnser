@@ -35,7 +35,7 @@ async fn get_name(ip_str: &String)  -> () {
                         println!("ip: {}: host: {}", ip_str, record);
                     }
                 }
-                Ok(Err(_)) => println!("{}: No PTR record", ip_str),
+                Ok(Err(_)) => println!("ip: {}: host: unknown", ip_str),
                 Err(_) => println!("ip: {}: timed out", ip_str),
         };
         ()
