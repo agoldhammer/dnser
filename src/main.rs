@@ -1,13 +1,15 @@
+use std::error::Error;
+use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::PathBuf;
-use std::error::Error;
 
+use hickory_resolver::TokioAsyncResolver;
 use std::net::IpAddr;
 use std::time::Duration;
-use tokio::time::timeout;
 use tokio::task::JoinSet;
-use hickory_resolver::TokioAsyncResolver;
+use tokio::time::timeout;
+// use hickory_resolver::hickory_proto::rr::rdata::PTR;
 // use hickory_resolver::error::ResolveError;
 // use tokio::time::error::Elapsed;
 // use hickory_resolver::lookup::ReverseLookup;
@@ -15,7 +17,7 @@ use hickory_resolver::TokioAsyncResolver;
 // use hickory_resolver::proto::rr::RData;
 // use hickory_resolver::proto::rr::RecordType;
 
-fn read_lines(path: &PathBuf) -> Result<io::Lines<BufReader<File>>, Box<dyn Error + 'static> >{
+fn read_lines(path: &PathBuf) -> Result<io::Lines<BufReader<File>>, Box<dyn Error + 'static>> {
     let file = File::open(path)?;
     return Ok(io::BufReader::new(file).lines());
 }
@@ -23,12 +25,19 @@ fn read_lines(path: &PathBuf) -> Result<io::Lines<BufReader<File>>, Box<dyn Erro
 #[derive(Debug)]
 struct RevLookupData {
     ip_addr: IpAddr,
-    ptr_records: Vec<String>
+    ptr_records: Vec<String>,
 }
 
-async fn get_name(ip_str: &String)  -> () {
-// async fn get_name(ip_str: &String)  . {
-    const TIMEOUT_MS: u64 = 1500;
+impl fmt::Display for RevLookupData {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "ip: {}: host: {}", self.ip_addr, self.ptr_records[0])
+    }
+}
+
+async fn get_name(ip_str: &String) -> () {
+    // async fn get_name(ip_str: &String)  . {
+    const TIMEOUT_MS: u64 = 2500;
     let ip_addr: IpAddr = ip_str.parse().unwrap();
     let resolver = TokioAsyncResolver::tokio_from_system_conf().unwrap();
 
@@ -37,23 +46,15 @@ async fn get_name(ip_str: &String)  -> () {
     let lookup_result = timeout(timeout_duration, reverse_lookup).await;
     match lookup_result {
         Ok(Ok(lookup_result)) => {
-                    let mut v: Vec<String> = Vec::new();
-                    for record in lookup_result.iter() {
-                        let s = format!("{}", record);
-                        v.push(String::from(s));
-                    }
-                    let rev_lookup_data = RevLookupData {
-                    ip_addr,
-                    ptr_records: v,
-
-                };
-                // dbg!(rev_lookup_data);
-                println!("ip: {}: host: {}", rev_lookup_data.ip_addr, rev_lookup_data.ptr_records[0] );
-// 
-                    // for record in lookup_result.iter() {
-                        // println!("ip: {}: host: {}", ip_str, record);
-                    // }
-                }
+            let rev_lookup_data = RevLookupData {
+                ip_addr,
+                ptr_records: lookup_result
+                    .iter()
+                    .map(|record| format!("{}", record))
+                    .collect(),
+            };
+            println!("{}", rev_lookup_data);
+        }
         Ok(Err(_)) => println!("ip: {}: host: unknown", ip_str),
         Err(_) => println!("ip: {}: timed out", ip_str),
     };
@@ -67,9 +68,9 @@ async fn main() {
     let lines = read_lines(&fpath).unwrap();
     let mut set = JoinSet::new();
     for ip_str in lines {
-        set.spawn(async move {get_name(&ip_str.unwrap()).await});
+        set.spawn(async move { get_name(&ip_str.unwrap()).await });
     }
     while let Some(res) = set.join_next().await {
         res.expect("join error");
-    };
+    }
 }
