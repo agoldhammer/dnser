@@ -9,13 +9,6 @@ use std::net::IpAddr;
 use std::time::Duration;
 use tokio::task::JoinSet;
 use tokio::time::timeout;
-// use hickory_resolver::hickory_proto::rr::rdata::PTR;
-// use hickory_resolver::error::ResolveError;
-// use tokio::time::error::Elapsed;
-// use hickory_resolver::lookup::ReverseLookup;
-// use hickory_resolver::config::\*;
-// use hickory_resolver::proto::rr::RData;
-// use hickory_resolver::proto::rr::RecordType;
 
 fn read_lines(path: &PathBuf) -> Result<io::Lines<BufReader<File>>, Box<dyn Error + 'static>> {
     let file = File::open(path)?;
@@ -56,6 +49,7 @@ async fn get_name(ip_str: &String) -> () {
     let mut rev_lookup_data = RevLookupData::new(ip_addr);
     match lookup_result {
         Ok(Ok(lookup_result)) => {
+            //successful lookup
             // let rev_lookup_data = RevLookupData {
             // ip_addr,
             rev_lookup_data.ptr_records = lookup_result
@@ -65,9 +59,10 @@ async fn get_name(ip_str: &String) -> () {
             // };
             // println!("{}", rev_lookup_data);
         }
-        Ok(Err(_)) => rev_lookup_data.ptr_records.push("unknown".to_string()), //println!("ip: {}: host: unknown", ip_str),
-        Err(_) => rev_lookup_data.ptr_records.push("timed out".to_string()), //println!("ip: {}: timed out", ip_str),
+        Ok(Err(_)) => rev_lookup_data.ptr_records.push("unknown".to_string()), //no PTR records found,
+        Err(_) => rev_lookup_data.ptr_records.push("timed out".to_string()),   // lookup timed out
     };
+    // TODO: pass to channel
     println!("{}", rev_lookup_data);
     ()
 }
