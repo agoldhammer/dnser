@@ -33,7 +33,17 @@ impl RevLookupData {
 impl fmt::Display for RevLookupData {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ip: {}: host: {}", self.ip_addr, self.ptr_records[0])
+        // write!(f, "ip: {}: host: {}", self.ip_addr, self.ptr_records[0])
+        write!(f, "ip: {}: ", self.ip_addr).unwrap();
+        // for rec in self.ptr_records {
+        //     write!(f, "host {}", rec);
+        // }
+        let results = self
+            .ptr_records
+            .iter()
+            .map(|record| write!(f, "host: {}", record))
+            .collect();
+        results
     }
 }
 
