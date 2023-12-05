@@ -28,6 +28,15 @@ struct RevLookupData {
     ptr_records: Vec<String>,
 }
 
+impl RevLookupData {
+    fn new(ip_addr: IpAddr) -> RevLookupData {
+        RevLookupData {
+            ip_addr: ip_addr,
+            ptr_records: Vec::new(),
+        }
+    }
+}
+
 impl fmt::Display for RevLookupData {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -37,27 +46,29 @@ impl fmt::Display for RevLookupData {
 
 async fn get_name(ip_str: &String) -> () {
     // async fn get_name(ip_str: &String)  . {
-    const TIMEOUT_MS: u64 = 2500;
+    const TIMEOUT_MS: u64 = 1500;
     let ip_addr: IpAddr = ip_str.parse().unwrap();
     let resolver = TokioAsyncResolver::tokio_from_system_conf().unwrap();
 
     let reverse_lookup = resolver.reverse_lookup(ip_addr);
     let timeout_duration = Duration::from_millis(TIMEOUT_MS);
     let lookup_result = timeout(timeout_duration, reverse_lookup).await;
+    let mut rev_lookup_data = RevLookupData::new(ip_addr);
     match lookup_result {
         Ok(Ok(lookup_result)) => {
-            let rev_lookup_data = RevLookupData {
-                ip_addr,
-                ptr_records: lookup_result
-                    .iter()
-                    .map(|record| format!("{}", record))
-                    .collect(),
-            };
-            println!("{}", rev_lookup_data);
+            // let rev_lookup_data = RevLookupData {
+            // ip_addr,
+            rev_lookup_data.ptr_records = lookup_result
+                .iter()
+                .map(|record| format!("{}", record))
+                .collect();
+            // };
+            // println!("{}", rev_lookup_data);
         }
-        Ok(Err(_)) => println!("ip: {}: host: unknown", ip_str),
-        Err(_) => println!("ip: {}: timed out", ip_str),
+        Ok(Err(_)) => rev_lookup_data.ptr_records.push("unknown".to_string()), //println!("ip: {}: host: unknown", ip_str),
+        Err(_) => rev_lookup_data.ptr_records.push("timed out".to_string()), //println!("ip: {}: timed out", ip_str),
     };
+    println!("{}", rev_lookup_data);
     ()
 }
 
