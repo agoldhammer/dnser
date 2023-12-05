@@ -20,6 +20,12 @@ fn read_lines(path: &PathBuf) -> Result<io::Lines<BufReader<File>>, Box<dyn Erro
     return Ok(io::BufReader::new(file).lines());
 }
 
+#[derive(Debug)]
+struct RevLookupData {
+    ip_addr: IpAddr,
+    ptr_records: Vec<String>
+}
+
 async fn get_name(ip_str: &String)  -> () {
 // async fn get_name(ip_str: &String)  . {
     const TIMEOUT_MS: u64 = 1500;
@@ -30,15 +36,28 @@ async fn get_name(ip_str: &String)  -> () {
     let timeout_duration = Duration::from_millis(TIMEOUT_MS);
     let lookup_result = timeout(timeout_duration, reverse_lookup).await;
     match lookup_result {
-                Ok(Ok(lookup_result)) => {
+        Ok(Ok(lookup_result)) => {
+                    let mut v: Vec<String> = Vec::new();
                     for record in lookup_result.iter() {
-                        println!("ip: {}: host: {}", ip_str, record);
+                        let s = format!("{}", record);
+                        v.push(String::from(s));
                     }
+                    let rev_lookup_data = RevLookupData {
+                    ip_addr,
+                    ptr_records: v,
+
+                };
+                // dbg!(rev_lookup_data);
+                println!("ip: {}: host: {}", rev_lookup_data.ip_addr, rev_lookup_data.ptr_records[0] );
+// 
+                    // for record in lookup_result.iter() {
+                        // println!("ip: {}: host: {}", ip_str, record);
+                    // }
                 }
-                Ok(Err(_)) => println!("ip: {}: host: unknown", ip_str),
-                Err(_) => println!("ip: {}: timed out", ip_str),
-        };
-        ()
+        Ok(Err(_)) => println!("ip: {}: host: unknown", ip_str),
+        Err(_) => println!("ip: {}: timed out", ip_str),
+    };
+    ()
 }
 
 #[tokio::main]
