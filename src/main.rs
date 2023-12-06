@@ -2,11 +2,12 @@ use std::error::Error;
 use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
+use std::net::IpAddr;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use hickory_resolver::TokioAsyncResolver;
-use std::net::IpAddr;
-use std::time::Duration;
+
 use tokio::sync::mpsc;
 use tokio::task::JoinSet;
 use tokio::time::timeout;
@@ -48,9 +49,10 @@ impl fmt::Display for RevLookupData {
     }
 }
 
+// Do reverse lookup on ip_str, send result out on channel tx
 async fn get_name(ip_str: &String, tx: mpsc::Sender<RevLookupData>) -> () {
     // async fn get_name(ip_str: &String)  . {
-    const TIMEOUT_MS: u64 = 1500;
+    const TIMEOUT_MS: u64 = 2500;
     let ip_addr: IpAddr = ip_str.parse().unwrap();
     let resolver = TokioAsyncResolver::tokio_from_system_conf().unwrap();
 
@@ -81,11 +83,6 @@ async fn get_name(ip_str: &String, tx: mpsc::Sender<RevLookupData>) -> () {
 async fn main() {
     const CHAN_BUF_SIZE: usize = 32;
     let (tx, mut rx) = mpsc::channel(CHAN_BUF_SIZE);
-
-    // tokio::spawn(async move {
-    //     tx.send("sending from first handle").await;
-    // });
-
     let mut fpath: PathBuf = PathBuf::new();
     fpath.push("unique_ips_54.txt");
     let lines = read_lines(&fpath).unwrap();
@@ -95,8 +92,8 @@ async fn main() {
         set.spawn(async move { get_name(&ip_str.unwrap(), txa).await });
     }
     drop(tx); // have to drop the original channel that has been cloned for each task
-    while let Some(data) = rx.recv().await {
-        println!("rcvd: {}", data);
+    while let Some(rev_lookup_data) = rx.recv().await {
+        println!("rcvd: {}", rev_lookup_data);
     }
     while let Some(res) = set.join_next().await {
         res.expect("join error");
