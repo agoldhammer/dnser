@@ -35,17 +35,11 @@ impl RevLookupData {
 impl fmt::Display for RevLookupData {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // write!(f, "ip: {}: host: {}", self.ip_addr, self.ptr_records[0])
         write!(f, "ip: {}: ", self.ip_addr).unwrap();
-        // for rec in self.ptr_records {
-        //     write!(f, "host {}", rec);
-        // }
-        let results = self
-            .ptr_records
+        self.ptr_records
             .iter()
             .map(|record| write!(f, "host: {}", record))
-            .collect();
-        results
+            .collect()
     }
 }
 
@@ -63,14 +57,10 @@ async fn get_name(ip_str: &String, tx: mpsc::Sender<RevLookupData>) -> () {
     match lookup_result {
         Ok(Ok(lookup_result)) => {
             //successful lookup
-            // let rev_lookup_data = RevLookupData {
-            // ip_addr,
             rev_lookup_data.ptr_records = lookup_result
                 .iter()
                 .map(|record| format!("{}", record))
                 .collect();
-            // };
-            // println!("{}", rev_lookup_data);
         }
         Ok(Err(_)) => rev_lookup_data.ptr_records.push("unknown".to_string()), //no PTR records found,
         Err(_) => rev_lookup_data.ptr_records.push("timed out".to_string()),   // lookup timed out
@@ -81,7 +71,7 @@ async fn get_name(ip_str: &String, tx: mpsc::Sender<RevLookupData>) -> () {
 
 #[tokio::main]
 async fn main() {
-    const CHAN_BUF_SIZE: usize = 32;
+    const CHAN_BUF_SIZE: usize = 128;
     let (tx, mut rx) = mpsc::channel(CHAN_BUF_SIZE);
     let mut fpath: PathBuf = PathBuf::new();
     fpath.push("unique_ips_54.txt");
