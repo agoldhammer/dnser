@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use hickory_resolver::TokioAsyncResolver;
 use std::net::IpAddr;
 use std::time::Duration;
+use tokio::sync::mpsc;
 use tokio::task::JoinSet;
 use tokio::time::timeout;
 
@@ -47,7 +48,7 @@ impl fmt::Display for RevLookupData {
     }
 }
 
-async fn get_name(ip_str: &String) -> () {
+async fn get_name(ip_str: &String, tx: mpsc::Sender<RevLookupData>) -> () {
     // async fn get_name(ip_str: &String)  . {
     const TIMEOUT_MS: u64 = 1500;
     let ip_addr: IpAddr = ip_str.parse().unwrap();
@@ -72,19 +73,30 @@ async fn get_name(ip_str: &String) -> () {
         Ok(Err(_)) => rev_lookup_data.ptr_records.push("unknown".to_string()), //no PTR records found,
         Err(_) => rev_lookup_data.ptr_records.push("timed out".to_string()),   // lookup timed out
     };
-    // TODO: pass to channel
-    println!("{}", rev_lookup_data);
+    tx.send(rev_lookup_data).await.expect("should just work");
     ()
 }
 
 #[tokio::main]
 async fn main() {
+    const CHAN_BUF_SIZE: usize = 32;
+    let (tx, mut rx) = mpsc::channel(CHAN_BUF_SIZE);
+
+    // tokio::spawn(async move {
+    //     tx.send("sending from first handle").await;
+    // });
+
     let mut fpath: PathBuf = PathBuf::new();
     fpath.push("unique_ips_54.txt");
     let lines = read_lines(&fpath).unwrap();
     let mut set = JoinSet::new();
     for ip_str in lines {
-        set.spawn(async move { get_name(&ip_str.unwrap()).await });
+        let txa = tx.clone();
+        set.spawn(async move { get_name(&ip_str.unwrap(), txa).await });
+    }
+    drop(tx); // have to drop the original channel that has been cloned for each task
+    while let Some(data) = rx.recv().await {
+        println!("rcvd: {}", data);
     }
     while let Some(res) = set.join_next().await {
         res.expect("join error");
